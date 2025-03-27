@@ -82,7 +82,7 @@ def plot_filters(filter_t, filter_f, filter_psd, freq_axis):
     ax1.set_title('Time domain filter')
     ax1.set_xlim((0,100))
 
-    ax2.plot(freq_axis, filter_f.real, color='k')
+    ax2.plot(freq_axis, filter_f, color='k')
     ax2.set_title('Frequency domain filter')
 
     ax3.plot(freq_axis, filter_psd, color='k')
@@ -90,36 +90,32 @@ def plot_filters(filter_t, filter_f, filter_psd, freq_axis):
 
     plt.tight_layout()
 
-def plot_ia_filters(waveform_instances, filter_psd_instances, aw_filters, wi_filters,
-                    theor_freqs, spk_instances, filter_type=None):
+def plot_ia_filters(instances, filters, theor_freqs):
         """
         Plots the average waveform filters, average filter for each instance of the waveform, and each instance of the waveform
         """
         # create colormap
         cmap = colormaps.get_cmap('GnBu')
-        cmap_idx = np.linspace(0,1.0,spk_instances)
+        cmap_idx = np.linspace(0,1.0, instances['spikes'])
         colors = cmap(cmap_idx)
-        
-        if filter_type == 'time':
-            fig, ax = plt.subplots(dpi=300)
-            for i,color in enumerate(colors):
-                ax.plot(waveform_instances[i], alpha=0.3, color=color)
-            plt.plot(aw_filters[f'time_filter'], color='#e38710', label='Waveform-averaged')
-            plt.plot(wi_filters[f'time_filter'], color='#edc161', label='Instance-averaged')
-            plt.plot()
-            plt.legend()
-            plt.xlim((0,100))
-            plt.show()
 
-        elif filter_type == 'psd':
-            fig, ax = plt.subplots(dpi=300)
-            for i,color in enumerate(colors):
-                ax.loglog(theor_freqs, filter_psd_instances[i], alpha=0.3, color=color)
-            plt.loglog(theor_freqs, aw_filters['filter_psd'], color='#e38710', label='Waveform-averaged')
-            plt.loglog(theor_freqs, wi_filters['filter_psd'], color='#edc161', label='Spectrum instance-averaged')
-            plt.loglog(theor_freqs, wi_filters['filter_psd_iaw'], color='coral', label='Waveform-average spectrum')
-            plt.legend()
-            #plt.xlim((1,5000))
-            #plt.ylim((1e-10, 1e-2))
-            #plt.show()
+        fig, ax = plt.subplots(2,2, dpi=300)
+        
+        for i,color in enumerate(colors):
+            ax[0,0].plot(instances['waveforms'][i], alpha=0.3, color=color)
+        ax[0,0].plot(filters['average_waveform']['time_filter'], color='#e38710', label='Waveform-averaged')
+        ax[0,0].plot(filters['waveform_instance']['time_filter'], color='#edc161', label='Instance-averaged')
+        ax[0,0].plot()
+        ax[0,0].legend()
+        ax[0,0].set_xlim((0,100))
+
+        for i,color in enumerate(colors):
+            ax[1,1].loglog(theor_freqs, instances['psds'][i], alpha=0.3, color=color)
+        ax[1,1].loglog(theor_freqs, filters['average_waveform']['filter_psd'], color='#e38710', label='Waveform-averaged')
+        ax[1,1].loglog(theor_freqs, filters['waveform_instance']['filter_psd'], color='#edc161', label='Spectrum instance-averaged')
+        ax[1,1].loglog(theor_freqs, filters['waveform_instance']['filter_psd_iaw'], color='coral', label='Waveform-average spectrum')
+        ax[1,1].legend()
+        #plt.xlim((1,5000))
+        #plt.ylim((1e-10, 1e-2))
+        #plt.show()
 

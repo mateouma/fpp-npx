@@ -83,6 +83,11 @@ class ChannelSignal:
                 
         if xlim is not None:
             plt.xlim(xlim)
+
+        plt.xlabel("Time (s)")
+        plt.ylabel("Voltage (mV)")
+        plt.title(f"Channel {self.channel} Time-Series")
+
         plt.legend()
         
     def generate_unit_filters(self, selected_unit, truncate_idx=62, n=None, truncate=True):

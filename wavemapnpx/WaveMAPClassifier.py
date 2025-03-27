@@ -131,7 +131,10 @@ class WaveMAPClassifier:
         arr.spines['bottom'].set_visible(False)
 
     def plot_groups(self, mean_only=False, detailed=False, group='all'):
-        if group is 'all':
+        """
+        TO-DO: move this outside the classifier
+        """
+        if group == 'all':
             group = range(self.n_clust)
         else:
             group = [group]
