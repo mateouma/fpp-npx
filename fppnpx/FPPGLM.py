@@ -6,7 +6,7 @@ from .spectrafuncs import *
 
 class FPPGLM:
 
-    def __init__(self, time_series, time_axis, fs, n_tapers):
+    def __init__(self, time_series, time_axis, fs, thbp=None):
         """
         Initialize filtered point process (homogeneous poisson) generalized linear model
 
@@ -16,7 +16,7 @@ class FPPGLM:
         self.time_axis = time_axis
 
         # calculate tapered power spectrum of the signal
-        self.multitaper_psd,self.multitaper_frequencies = multitaper_psd(time_series, fs, n_tapers)
+        self.multitaper_psd,self.multitaper_frequencies = multitaper_psd(time_series, fs, thbp)
 
         self.is_model_fit = False
 

@@ -4,13 +4,22 @@ import scipy.signal as sig
 
 from spectral_connectivity import Multitaper, Connectivity
 
-def multitaper_psd(time_series, fs, n_tapers, start_time=0.0):
-    multitaper = Multitaper(
-            time_series,
-            sampling_frequency=fs,
-            n_tapers=n_tapers,
-            start_time=start_time,
+def multitaper_psd(time_series, fs, thbp=None, start_time=0.0):
+    if thbp is not None:
+        multitaper = Multitaper(
+                time_series,
+                sampling_frequency=fs,
+                time_halfbandwidth_product=thbp,
+                start_time=start_time
         )
+    else:
+        multitaper = Multitaper(
+                time_series,
+                sampling_frequency=fs,
+                start_time=start_time
+        )
+    print(f"Multitaper frequency resolution: {multitaper.frequency_resolution}")
+    print(f"Multitaper number of tapers: {multitaper.n_tapers}")
     connectivity = Connectivity.from_multitaper(multitaper)
     multitaper_psd = connectivity.power().squeeze()
     multitaper_frequencies = connectivity.frequencies
@@ -90,19 +99,26 @@ def plot_spectrum(x, fs, time_halfbandwidth_product=4, n_tapers=7, start_time=0.
     #plt.xlim((0,2000))
 
 def plot_spectrogram(x, fs, spk_train=None, time_halfbandwidth_product=4, window_duration=0.05, window_step=0.025, start_time=0.0):
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(dpi=300)
     connectivity = multitaper_spectrogram(x, fs, time_halfbandwidth_product, window_duration, window_step, start_time=0.0)
     im = ax.pcolormesh(
         connectivity.time,
         connectivity.frequencies,
-        connectivity.power().squeeze().T,
+        np.log10(connectivity.power().squeeze().T),
         cmap="viridis",
         shading="auto",
+        vmin=-5.0,
+        vmax=-0.3
     )
-    
-    plt.ylim((0, 2000))
 
+    ax.set_ylim((0,6000))
+    #ax.set_yscale("log")
+
+    
     if spk_train is not None:
         plt.scatter(spk_train / fs, np.repeat(250, len(spk_train)), color='red', marker='^', s=3)
-    ax.set_ylabel("Frequency")
+    ax.set_ylabel("Frequency (Hz)")
     ax.set_xlabel("Time")
+
+    cbar = plt.colorbar(im, ax=ax)
+    cbar.set_label("Log10 Power")

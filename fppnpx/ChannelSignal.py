@@ -4,6 +4,7 @@ import scipy.signal as sig
 import matplotlib.pyplot as plt
 
 from .filterfuncs import *
+from .miscfuncs import harmonic_regression
 
 class ChannelSignal:
     """
@@ -37,21 +38,24 @@ class ChannelSignal:
         self.unit_idx, = np.where(goodchannels == channel) 
         self.units = np.array(wf['cluId'])[self.unit_idx].astype(int)
 
-        # spectrum spikes: 60, 120, 180, 300, 360, 420, 540, 660
-        # center and filter time series
-        time_series = rc[channel] - np.mean(rc[channel])
-        b_notch, a_notch = sig.iirnotch(60.0, 30.0, fs)
-        time_series = sig.filtfilt(b_notch, a_notch, time_series)
-        if filt:
-            sos = sig.butter(3, hpf, 'hp', fs=fs, output='sos')
-            time_series = sig.sosfilt(sos, time_series)
-        self.time_series = time_series
-
         # create time axis
         t1,t2 = times
         self.t1 = t1
         self.N = t2 - t1
         self.time_axis = np.linspace(int(t1/fs),int(t2/fs),self.N)
+
+        # center signal
+        time_series = rc[channel] - np.mean(rc[channel])
+        
+        # remove line noise with harmonic regression
+        _,time_series,__ = harmonic_regression(t=self.time_axis - self.time_axis[0], y=time_series, f=60, K=6)
+
+        # b_notch, a_notch = sig.iirnotch(60.0, 30.0, fs)
+        # time_series = sig.filtfilt(b_notch, a_notch, time_series)
+        if filt:
+            sos = sig.butter(3, hpf, 'hp', fs=fs, output='sos')
+            time_series = sig.sosfilt(sos, time_series)
+        self.time_series = time_series
 
         # for each unit, find the spike times and calculate firing rates
         time_restrict = lambda st: st[np.logical_and(st >= t1, st <= t2)] - t1 # get spikes within selected time range
