@@ -21,7 +21,7 @@ import xml.etree.ElementTree as ET
 import networkx as nx
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import confusion_matrix
-import xgboost as xgb
+# import xgboost as xgb
 from umap import umap_ as umap
 from community import community_louvain as louvain
 import shap

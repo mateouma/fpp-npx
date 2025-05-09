@@ -61,7 +61,7 @@ class FPPGLM:
         self.mult_const = mult_const
         y = self.multitaper_psd_truncated * self.mult_const
 
-        # fit statsmodels Gamma GLM
+        # fit statsmodels Gamma GLM, track observed Gamma parameters
         glm_model = sm.GLM(y, X, family=sm.families.Gamma(link=sm.families.links.Identity()))
         glm_results = glm_model.fit()
 
@@ -69,20 +69,29 @@ class FPPGLM:
         
         phi = glm_results.scale
         k = 1/phi
-        self.gamma_dist_params = {'phi':phi, 'k':k}       
+        self.glm_results = glm_results # rm this later
+        self.gamma_dist_params = {'phi':phi, 'k':k}
+
+        # generate theoretical power spectrum
+        self.theoretical_psd_truncated = np.array(self.S_truncated).T @ self.lambda_observed
+        self.theoretical_psd_interpolated = spectrum_interp(self.multitaper_frequencies_truncated,
+                                                            self.theoretical_frequencies_truncated,
+                                                            self.theoretical_psd_truncated)
 
         self.is_model_fit = True 
 
         if self.bias:
             reported_lambda = self.lambda_estimated[1]
+            print(f"Estimated Bias:            {self.lambda_estimated[0]:.3f}")
+
         else:
             reported_lambda = self.lambda_estimated[0]
 
-        print(f"Estimated Bias:               {self.lambda_estimated[0]:.3f}")
-        print(f"Theoretical $\lambda_0$:      {lambda_observed[0]:.3f}")
-        print(f"Estimated $\lambda_0$:        {reported_lambda:.3f}")
-        print(f"Gamma Dispersion (phi):       {phi:.3f}")
-        print(f"Gamma Shape (k):              {k:.3f}")
+        
+        print(f"Theoretical lambda_0:      {lambda_observed[0]:.3f}")
+        print(f"Estimated lambda_0:        {reported_lambda:.3f}")
+        print(f"Gamma Dispersion (phi):    {phi:.3f}")
+        print(f"Gamma Shape (k):           {k:.3f}")
 
     def predict(self, interp_filters=None):
         if interp_filters is None:
@@ -123,7 +132,7 @@ class FPPGLM:
         # ii. theoretical PSD
         axes[1].loglog(
             self.theoretical_frequencies_truncated,
-            np.array(self.S_truncated).T @ self.lambda_observed,
+            self.theoretical_psd_truncated,
             label="Theoretical PSD (True $\lambda_0$)",
             linewidth=2,
             color='k'

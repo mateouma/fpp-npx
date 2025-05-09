@@ -59,7 +59,7 @@ class ChannelSignal:
 
         # for each unit, find the spike times and calculate firing rates
         time_restrict = lambda st: st[np.logical_and(st >= t1, st <= t2)] - t1 # get spikes within selected time range
-        self.spike_times = {self.units[i]: time_restrict(wf['st'][ui]) for i,ui in enumerate(self.unit_idx)}
+        self.spike_times = {self.units[i]: time_restrict(wf['st'][ui] * (fs / 30000)) for i,ui in enumerate(self.unit_idx)}
         self.firing_rates = {self.units[i]: len(self.spike_times[ui])/(int(self.N/fs)) for i,ui in enumerate(self.units)}
 
         # designate the cluster and waveform information

@@ -98,27 +98,27 @@ def plot_spectrum(x, fs, time_halfbandwidth_product=4, n_tapers=7, start_time=0.
         plt.plot(mt_freqs, mt_psd, linewidth=0.6, color='k')
     #plt.xlim((0,2000))
 
-def plot_spectrogram(x, fs, spk_train=None, time_halfbandwidth_product=4, window_duration=0.05, window_step=0.025, start_time=0.0):
+def plot_spectrogram(x, fs, spk_train=None, time_halfbandwidth_product=4, window_duration=0.05, window_step=0.025, start_time=0.0, ymin=0, ymax=6000):
     fig, ax = plt.subplots(dpi=300)
-    connectivity = multitaper_spectrogram(x, fs, time_halfbandwidth_product, window_duration, window_step, start_time=0.0)
+    connectivity = multitaper_spectrogram(x, fs, time_halfbandwidth_product, window_duration, window_step, start_time=start_time)
     im = ax.pcolormesh(
         connectivity.time,
         connectivity.frequencies,
-        np.log10(connectivity.power().squeeze().T),
+        10 * np.log10(connectivity.power().squeeze().T),
         cmap="viridis",
-        shading="auto",
-        vmin=-5.0,
-        vmax=-0.3
+        shading="auto"
+        # vmin=-5.0,
+        # vmax=-0.3
     )
 
-    ax.set_ylim((0,6000))
+    ax.set_ylim((ymin,ymax))
     #ax.set_yscale("log")
 
     
     if spk_train is not None:
         plt.scatter(spk_train / fs, np.repeat(250, len(spk_train)), color='red', marker='^', s=3)
     ax.set_ylabel("Frequency (Hz)")
-    ax.set_xlabel("Time")
+    ax.set_xlabel("Time (s)")
 
     cbar = plt.colorbar(im, ax=ax)
-    cbar.set_label("Log10 Power")
+    cbar.set_label("Power (dB/Hz)")
