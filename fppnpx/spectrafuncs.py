@@ -39,7 +39,7 @@ def multitaper_spectrogram(time_series, fs, time_halfbandwidth_product, window_d
     
     return connectivity
 
-def spectrum_trunc(freqs, spectrum, freq_range):
+def spectrum_trunc(freqs, spectrum, freq_range, spectrogram=False):
     """
     'Filters' a power spectra
     """
@@ -48,7 +48,10 @@ def spectrum_trunc(freqs, spectrum, freq_range):
         (freqs >= freq_min) & (freqs <= freq_max)
     )
     freqs_trunc = freqs[trunc_idx]
-    spectrum_trunc = spectrum[trunc_idx]
+    if spectrogram:
+        spectrum_trunc = spectrum[:,trunc_idx]
+    else:
+        spectrum_trunc = spectrum[trunc_idx]
 
     return spectrum_trunc, freqs_trunc
 

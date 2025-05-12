@@ -48,7 +48,9 @@ class ChannelSignal:
         time_series = rc[channel] - np.mean(rc[channel])
         
         # remove line noise with harmonic regression
-        _,time_series,__ = harmonic_regression(t=self.time_axis - self.time_axis[0], y=time_series, f=60, K=6)
+        # thr = self.time_axis - self.time_axis[0]
+        # for fln in np.linspace(59.7,60.3,10):
+        #     _,time_series,__ = harmonic_regression(t=thr, y=time_series, f=fln, K=6)
 
         # b_notch, a_notch = sig.iirnotch(60.0, 30.0, fs)
         # time_series = sig.filtfilt(b_notch, a_notch, time_series)
