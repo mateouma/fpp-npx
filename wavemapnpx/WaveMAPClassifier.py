@@ -36,7 +36,8 @@ class WaveMAPClassifier:
             self.CLUSTER_PALETTE = cluster_palette
 
         # standardize by extrema
-        waveforms = (waveforms - waveforms.mean(axis=1)[:,None]) / np.abs(waveforms).max(axis=1)[:,None]
+        waveforms = (waveforms - waveforms.mean(axis=1)[:,None])
+        waveforms /= np.abs(waveforms).max(axis=1)[:,None]
 
         if add_noise:
             noise = np.zeros(waveforms.shape)
@@ -93,8 +94,8 @@ class WaveMAPClassifier:
         self.cluster_waveforms = cluster_waveforms
         
 
-    def plot_umap(self, show_clustering_solution=False):
-        f,arr = plt.subplots(1, figsize=[7,4.5], tight_layout={'pad': 0})
+    def plot_umap(self, show_clustering_solution=False, save=False):
+        f,arr = plt.subplots(1, figsize=[7,4.5], tight_layout={'pad': 0}, dpi=300)
         f.tight_layout()
 
         if not show_clustering_solution :
@@ -121,6 +122,8 @@ class WaveMAPClassifier:
         arr.text(-3,0.3,"UMAP 1", va="center")
         arr.text(-3.5,1.0,"UMAP 2",rotation=90, ha="left", va="bottom")
 
+        return f, arr
+
     def plot_waveforms(self):
         f,arr = plt.subplots(1)
         arr.plot(self.waveforms.T,c='k',alpha=0.05);
@@ -129,6 +132,8 @@ class WaveMAPClassifier:
         arr.spines['right'].set_visible(False)
         arr.spines['top'].set_visible(False)
         arr.spines['bottom'].set_visible(False)
+        
+        return f,arr
 
     def plot_groups(self, mean_only=False, detailed=False, group='all'):
         """
@@ -175,7 +180,7 @@ class WaveMAPClassifier:
                 ellipse = mpl.patches.Ellipse((x,y), width=5.4, height=0.3, facecolor='w',
                                     edgecolor='k',linewidth=1.5)
                 label = arr.annotate(str(label_ix+1), xy=(x-0.25, y-0.08),fontsize=12, color = 'k', ha="center")
-                arr.add_patch(ellipse)
+                #arr.add_patch(ellipse)
 
                 if i != -1:
                     x, y = 40,-1
@@ -183,7 +188,7 @@ class WaveMAPClassifier:
                                         'n = '+str(len(self.cluster_waveforms[label_ix]))+
                                         ' ('+str(round(len(self.cluster_waveforms[label_ix])/len(self.umap_df)*100,2))+'%)'
                                         , fontsize=10)
-
+            f.savefig(f"figs/cluster_waveforms/wavemap_cluster{label_ix}_0521_res1.svg", dpi=300)
             f.show()
 
     def save_results(self):

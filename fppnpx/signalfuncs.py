@@ -74,9 +74,9 @@ def load_signal(appath, time_window, fs, cipath, wfpath):
 
     return signal_dataset
 
-def gen_all_channel_signals(signal_dataset, hpf=300, filt=False):
+def gen_all_channel_signals(signal_dataset, hpf=300, high_pass_filt=False):
     channel_signals = {}
     for chan in np.unique(signal_dataset["channels"]):
-        channel_signals[f"ch{chan}"] = ChannelSignal(channel=chan, signal_dataset=signal_dataset, hpf=hpf, filt=filt)
+        channel_signals[f"ch{chan}"] = ChannelSignal(channel=chan, signal_dataset=signal_dataset, hpf=hpf, high_pass_filt=high_pass_filt)
     print(f"Generated {len(channel_signals.keys())} channel signals.")
     return channel_signals

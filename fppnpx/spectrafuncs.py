@@ -4,7 +4,7 @@ import scipy.signal as sig
 
 from spectral_connectivity import Multitaper, Connectivity
 
-def multitaper_psd(time_series, fs, thbp=None, start_time=0.0):
+def multitaper_psd(time_series, fs, thbp=None, start_time=0.0, verbose=True):
     if thbp is not None:
         multitaper = Multitaper(
                 time_series,
@@ -18,8 +18,9 @@ def multitaper_psd(time_series, fs, thbp=None, start_time=0.0):
                 sampling_frequency=fs,
                 start_time=start_time
         )
-    print(f"Multitaper frequency resolution: {multitaper.frequency_resolution}")
-    print(f"Multitaper number of tapers: {multitaper.n_tapers}")
+    if verbose:
+        print(f"Multitaper frequency resolution: {multitaper.frequency_resolution}")
+        print(f"Multitaper number of tapers: {multitaper.n_tapers}")
     connectivity = Connectivity.from_multitaper(multitaper)
     multitaper_psd = connectivity.power().squeeze()
     multitaper_frequencies = connectivity.frequencies
@@ -119,7 +120,7 @@ def plot_spectrogram(x, fs, spk_train=None, time_halfbandwidth_product=4, window
 
     
     if spk_train is not None:
-        plt.scatter(spk_train / fs, np.repeat(250, len(spk_train)), color='red', marker='^', s=3)
+        plt.scatter((spk_train / fs) + start_time, np.repeat(2, len(spk_train)), color='red', marker='^', s=3)
     ax.set_ylabel("Frequency (Hz)")
     ax.set_xlabel("Time (s)")
 

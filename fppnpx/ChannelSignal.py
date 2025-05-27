@@ -11,7 +11,7 @@ class ChannelSignal:
     An object containing the time series, units, and respective waveforms for a given channel
     """
 
-    def __init__(self, channel, signal_dataset, hpf=300, filt=False):
+    def __init__(self, channel, signal_dataset, hpf=300, high_pass_filt=False):
         """
         Initialize
 
@@ -47,14 +47,20 @@ class ChannelSignal:
         # center signal
         time_series = rc[channel] - np.mean(rc[channel])
         
-        # remove line noise with harmonic regression
-        # thr = self.time_axis - self.time_axis[0]
-        # for fln in np.linspace(59.7,60.3,10):
-        #     _,time_series,__ = harmonic_regression(t=thr, y=time_series, f=fln, K=6)
+        # bandstop filters for harmonics since the line noise and harmonics are super strong
+        sos = sig.butter(1, [59,61], 'bandstop', fs=fs, output='sos')
+        time_series = sig.sosfilt(sos, time_series)
 
-        # b_notch, a_notch = sig.iirnotch(60.0, 30.0, fs)
-        # time_series = sig.filtfilt(b_notch, a_notch, time_series)
-        if filt:
+        sos = sig.butter(1, [119,121], 'bandstop', fs=fs, output='sos')
+        time_series = sig.sosfilt(sos, time_series)
+
+        sos = sig.butter(1, [179,181], 'bandstop', fs=fs, output='sos')
+        time_series = sig.sosfilt(sos, time_series)
+
+        # sos = sig.butter(1, [299,301], 'bandstop', fs=fs, output='sos')
+        # time_series = sig.sosfilt(sos, time_series)
+        
+        if high_pass_filt:
             sos = sig.butter(3, hpf, 'hp', fs=fs, output='sos')
             time_series = sig.sosfilt(sos, time_series)
         self.time_series = time_series
@@ -84,7 +90,7 @@ class ChannelSignal:
         # for plotting spikes from units located on other channels
         if additional_spikes is not None:
             for j in range(len(additional_spikes)):
-                plt.scatter((additional_spikes[j]+self.t1)/self.fs, np.repeat(spky-(2*(j+1)), len(additional_spikes[j])),
+                plt.scatter((additional_spikes[j]+self.t1)/self.fs, np.repeat(spky-(7*(j+1)), len(additional_spikes[j])),
                             zorder=2, marker='^', s=4, alpha=0.7, label=f'unit {add_spk_units[j]}', color=cmap(k+j+1))
                 
         if xlim is not None:

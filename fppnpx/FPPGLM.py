@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
 
+from scipy import optimize
+
 from .spectrafuncs import *
 
 class FPPGLM:
@@ -20,7 +22,7 @@ class FPPGLM:
 
         self.is_model_fit = False
 
-    def fit(self, filter_psd_list, lambda_observed, theoretical_frequencies, bias=False, mult_const=1, freq_range=(1,5000)):
+    def fit(self, filter_psd_list, lambda_observed, theoretical_frequencies, bias=False, mult_const=1, freq_range=(1,5000), nonneg=False):
         """
         Index and interpolate observed spectrum and filter spectra. Then fit Gamma GLM according
         to the formula y = XB where 'y' is the multitapered power spectrum, X is the design matrix
@@ -64,6 +66,23 @@ class FPPGLM:
         # fit statsmodels Gamma GLM, track observed Gamma parameters
         glm_model = sm.GLM(y, X, family=sm.families.Gamma(link=sm.families.links.Identity()))
         glm_results = glm_model.fit()
+
+        if nonneg:
+            def neg_loglike(params):
+                model = sm.GLM(y, X, family=sm.families.Gamma(link=sm.families.links.Identity()))
+                return -model.loglike(params)
+            
+            bounds = [(0, None) for _ in range(X.shape[1])]
+
+            results = optimize.minimize(
+                neg_loglike,
+                glm_results.params,
+                method='L-BFGS-B',
+                bounds=bounds
+            )
+
+            glm_model = sm.GLM(y, X, family=sm.families.Gamma(link=sm.families.links.Identity()))
+            glm_results = glm_model.fit(start_params=results.x, maxiter=0)
 
         self.lambda_estimated =  glm_results.params
         
