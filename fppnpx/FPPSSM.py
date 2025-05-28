@@ -30,8 +30,8 @@ class FPPSSM:
         State-space model with AR(1) deviations around a known baseline x_bar (TO-DO: establishj prior)
         """
         spectrogram_power_trunc,spectrogram_freqs_trunc = spectrum_trunc(self.spectrogram.frequencies,
-                                                                   self.spectrogram.power().squeeze(),
-                                                                   freq_range, True)
+                                                                         self.spectrogram.power().squeeze(),
+                                                                         freq_range, True)
         
         self.spectrogram_trunc_power = spectrogram_power_trunc.squeeze()
         self.spectrogram_trunc_freqs = spectrogram_freqs_trunc
@@ -108,8 +108,8 @@ class FPPSSM:
         with pm.Model() as model:
             alpha_1 = pm.Uniform("alpha_1", lower=0.3, upper=0.99)
             alpha_2 = pm.Uniform("alpha_2", lower=0.3, upper=0.99)
-            alpha_3 = pm.Uniform("alpha_3", lower=0.3, upper=0.99)
-            alpha_4 = pm.Uniform("alpha_4", lower=0.3, upper=0.99)
+            # alpha_3 = pm.Uniform("alpha_3", lower=0.3, upper=0.99)
+            # alpha_4 = pm.Uniform("alpha_4", lower=0.3, upper=0.99)
 
             # sigma (noise standard deviation)
             sigma = pm.Exponential("sigma", lam=0.01)
@@ -118,22 +118,22 @@ class FPPSSM:
             # sigma_3 = pm.Exponential("sigma_3", lam=0.01)
             # sigma_4 = pm.Exponential("sigma_4", lam=0.01)
             
-            d_0 = pm.MvNormal("d_0", mu=np.ones(4), cov=100.0*np.eye(4))
+            d_0 = pm.MvNormal("d_0", mu=np.ones(self.n_filts), cov=100.0*np.eye(self.n_filts))
 
             # baseline firing rate
             #x_bar = pm.Uniform("x_bar", lower=500, upper=750)
 
             # build AR(1) dynamics
             d_states = [d_0]
-            alphas = pt.stack([alpha_1, alpha_2, alpha_3, alpha_4])
+            alphas = pt.stack([alpha_1, alpha_2])#, alpha_3, alpha_4])
 
             for t in range(1, n_time):
-                d_t = pm.MvNormal(f"d_{t}", mu=alphas*d_states[t-1], cov=sigma*np.eye(4))
+                d_t = pm.MvNormal(f"d_{t}", mu=alphas*d_states[t-1], cov=sigma*np.eye(self.n_filts))
                 d_states.append(d_t)
             d_stack = pt.stack(d_states)
 
             # reconstruct latent state (population firing rate)
-            x_stack = d_stack + x_bar * pytensor.shared(np.ones(4))
+            x_stack = d_stack + x_bar * pytensor.shared(np.ones(self.n_filts))
 
             S_tf = pt.dot(x_stack, pytensor.shared(filter_spectrum_interp_list))
 
@@ -157,6 +157,7 @@ class FPPSSM:
         self.ssm_preds = [trace_b.posterior.data_vars[f'd_{i}'].mean().values for i in range(self.n_time)]
         
     def fit_mv(self, filter_psds, filter_frequencies, x_bar, freq_range=(1,6000)):
+        self.n_filts = len(filter_psds)
         self.build_mv_model(filter_psds, filter_frequencies, x_bar, freq_range)
         # model_b = self.model
 

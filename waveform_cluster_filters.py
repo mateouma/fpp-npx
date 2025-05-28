@@ -82,14 +82,17 @@ time_kernels_sc,freq_kernels_sc,kernel_psds_sc,kernel_psds_ATK_sc,freq_axis = ex
 # ax[1].set_title("Mean Cluster Waveform PSDs")
 # ax[1].legend()
 
+cluster_labels_ordered = [0, 5, 4, 1, 6, 2, 3] # by color
+waveform_labels = ['BS-1', 'BS-2', 'NS-1', 'NS-2', 'TP-1', 'TP-2', 'PS-1']
+
 wf_time = np.linspace(0,1000,30000)
 
 # normalized
 fig, ax = plt.subplots(1,2, figsize=(8,3))
 
-for clab in np.unique(cluster_labels):
+for wl,clab in enumerate(cluster_labels_ordered):
     ax[0].plot(wf_time[:62],time_kernels_sc[clab,:62], color=WAVEMAP_PAL[clab], label=f"Cluster {clab}")
-    ax[1].loglog(freq_axis, kernel_psds_sc[clab], color=WAVEMAP_PAL[clab], label=f"Cluster {clab+1}")
+    ax[1].loglog(freq_axis, kernel_psds_sc[wl], color=WAVEMAP_PAL[clab], label=waveform_labels[wl])
 
 
 ax[0].set_xlabel("Time (ms)")

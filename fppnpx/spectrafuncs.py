@@ -69,29 +69,6 @@ def spectrum_interp(reference_freqs, data_freqs, spectrum):
 
     return spectrum_interpolated
 
-def spectrum_smooth2(spec, freqs, win_lens, split_idxs, order=4):
-    split_idxs = np.concatenate(([0], split_idxs, [np.max(freqs)+1]))
-    spec_splits = []
-
-    for i in range(len(split_idxs)-1):
-        spec_splits.append(spec[np.logical_and(freqs >= split_idxs[i], freqs < split_idxs[i+1])])
-    
-    spec_filts = []
-
-    for i in range(len(win_lens)):
-        spec_filts.append(sig.savgol_filter(spec_splits[i], win_lens[i], order))
-
-    return np.concatenate(spec_filts)
-
-def spectrum_smooth(spec, freqs, win_len_1=100, win_len_2=1000, split_idx_1=100, order=4):
-    spec_split_1 = spec[freqs < split_idx_1]
-    spec_split_2 = spec[freqs >= split_idx_1]
-
-    spec_filt_1 = sig.savgol_filter(spec_split_1, win_len_1, order)
-    spec_filt_2 = sig.savgol_filter(spec_split_2, win_len_2, order)
-
-    return np.concatenate((spec_filt_1, spec_filt_2))
-
 def plot_spectrum(x, fs, time_halfbandwidth_product=4, n_tapers=7, start_time=0.0, axes='loglog'):
     mt_psd, mt_freqs = multitaper_psd(x, fs, n_tapers, start_time)
 
