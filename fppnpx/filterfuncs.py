@@ -71,7 +71,7 @@ def extract_mean_filters(cluster_waveforms, n_clust, n, fs):
     return mean_filters, freq_axis
 
 def plot_filters(filter_t, filter_f, filter_psd, freq_axis):
-    fig, ax = plt.subplots(2, 2, dpi=300)
+    fig, ax = plt.subplots(2, 2)
     # gs = gridspec.GridSpec(2, 2, height_ratios=[1, 1.2])  # adjust height ratio if needed
 
     # # Top row
@@ -109,7 +109,7 @@ def plot_ia_filters(instances, filters, theor_freqs):
         cmap_idx = np.linspace(0,1.0, instances['spikes'])
         colors = cmap(cmap_idx)
 
-        fig, ax = plt.subplots(1,2, figsize=(6,2), dpi=300)
+        fig, ax = plt.subplots(1,2, figsize=(6,2))
         
         for i,color in enumerate(colors):
             ax[0].plot(instances['waveforms'][i], alpha=0.3, color=color)

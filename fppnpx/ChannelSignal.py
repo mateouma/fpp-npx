@@ -102,7 +102,7 @@ class ChannelSignal:
 
         plt.legend()
         
-    def generate_unit_filters(self, selected_unit, truncate_idx=62, n=None, truncate=True):
+    def generate_unit_filters(self, selected_unit, truncate_idx=62, n=None, scale_to=None, truncate=True):
         """
         Generate instance-averaged filters as well as filters for the average waveform
         """
@@ -110,9 +110,22 @@ class ChannelSignal:
             n = self.fs
 
         filter_add_length = truncate_idx - 20
-        
-        # filters for average waveform
+
+        # calculate filters for average waveform
         ch_wf_mean = self.waveforms[selected_unit].mean(axis=1)
+
+        # for scaling the average waveform by some value when looking at units detected on other channels
+        if scale_to is not None:
+            # scale_to is the maximum
+            # get a = max(abs(waveform of ch_wf_mean))
+            # divide by a
+            # multiply by scale_to
+            scale_factor = scale_to / np.max(np.abs(ch_wf_mean))
+            print(f'Scaling factor of {scale_factor} applied')
+        else:
+            scale_factor = 1
+
+        ch_wf_mean *= scale_factor
         filter_t, filter_f, filter_psd, theor_freqs = gen_filter(ch_wf_mean, n, self.fs, center=True)
 
         average_waveform_filters = {

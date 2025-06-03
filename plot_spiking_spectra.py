@@ -38,8 +38,8 @@ u379_instances,u379_filters,_ = channel_signals['ch208'].generate_unit_filters(s
 u374_instances,u374_filters,_ = channel_signals['ch205'].generate_unit_filters(selected_unit=374)
 u375_instances,u375_filters,_ = channel_signals['ch205'].generate_unit_filters(selected_unit=375)
 
-def plot_chan_sig(channel_signal):
-    fig, ax = plt.subplots()
+# def plot_chan_sig(channel_signal):
+#     fig, ax = plt.subplots()
     
 
 fig, ax = plt.subplots(1,3, figsize=(8,3))
@@ -54,7 +54,7 @@ ax[1].loglog(theor_freqs, u296_filters['waveform_instance']['filter_psd'], color
 ax[1].loglog(theor_freqs, u296_filters['waveform_instance']['filter_psd'] * channel_signals['ch163'].firing_rates[296], color=cmap(0), label='Theoretical PSD (true $\lambda_0$)')
 ax[1].set_xlabel("Frequency (Hz)")
 ax[1].set_ylabel("Log Power")
-ax[1].set_xlim((1,6000))
+ax[1].set_xlim((300,6000))
 
 ax[1].spines['bottom'].set_bounds(1, 6e3)
 ax[1].spines['left'].set_bounds(2e-6, 5.0)

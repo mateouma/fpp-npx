@@ -46,4 +46,8 @@ cm_data = [[0.2081, 0.1663, 0.5292], [0.2116238095, 0.1897809524, 0.5776761905],
 ml_map = LinearSegmentedColormap.from_list('parula', cm_data)
 
 WAVEMAP_PAL = ['#5e60ce', '#00c49a','#ffca3a','#D81159','#fe7f2d','#7bdff2','#0496ff','#efa6c9','#ced4da', '#1eb43a']
+WAVEMAP_PAL2 = ['#D94E72', '#55C9D9', '#62D98F', '#6d8891', '#559FD9', '#D94EC5', '#8DDA62']
+
+MISC6_PAL = ['#1CA5FF', '#E38F19', '#AE1ED6', '#AED61C', '#D63A29', '#1CD676']
+
 cmap = colormaps.get_cmap('Set1')
