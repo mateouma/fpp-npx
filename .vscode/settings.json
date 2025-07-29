@@ -6,5 +6,8 @@
     "editor.parameterHints.enabled": false,
     "editor.suggestOnTriggerCharacters": false,
     "editor.wordBasedSuggestions": "off",
-    "editor.tabCompletion": "off"
+    "editor.tabCompletion": "off",
+    "python-envs.defaultEnvManager": "ms-python.python:conda",
+    "python-envs.defaultPackageManager": "ms-python.python:conda",
+    "python-envs.pythonProjects": []
 }

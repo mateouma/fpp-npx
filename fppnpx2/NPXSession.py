@@ -12,6 +12,8 @@ from tkinter import Tk, filedialog
 
 # script for reading in SpikeGLX data from Jennifer Colonell (https://github.com/jenniferColonell/SpikeGLX_Datafile_Tools)
 from .DemoReadSGLXData.readSGLX import readMeta, SampRate
+from .spectral import *
+from .filters import *
 
 def read_session(time_window, imec_path=None, bandtype='', amp_thres=0, waveform_path=None):
     """
@@ -80,6 +82,7 @@ def read_session(time_window, imec_path=None, bandtype='', amp_thres=0, waveform
 
     bytes_per_sample = 2
     t1, t2 = int(np.round(time_window[0]*fs)), int(np.round(time_window[1]*fs))
+    output['time_window'] = time_window
     output['time_range'] = (t1,t2)
 
     # read in Neuropixels signal
@@ -111,14 +114,16 @@ def read_session(time_window, imec_path=None, bandtype='', amp_thres=0, waveform
     spike_times = np.load(kilosort_path + "/spike_times.npy")
     spike_clusters = np.load(kilosort_path + "/spike_clusters.npy") # for each spike within the recording, which cluster was assigned
 
-    # TO-DO: FIX THIS SO IT IS CLUSTERS ON EACH CHANNEL
     template_to_clust = {t:c for t,c in zip(spike_templates, spike_clusters)}
+    clust_to_template = {c:t for c,t in zip(spike_clusters, spike_templates)}
     template_amps = np.max(np.abs(templates), axis=1) # N_templates x channels array containing maximum amplitude of each template on each channel
-    templates_on_channels = {}
+    clusters_on_channels = {}
     for i,chan in enumerate(channel_map):
         templates_on_chanOI = np.where(template_amps[:,i] > amp_thres)[0] # which templates greater than `amp_thres` were detected on channel `chan`
-        templates_on_channels[chan] = templates_on_chanOI
+        clusters_on_channels[chan] = np.array([template_to_clust[toc] for toc in templates_on_chanOI])
+    output["clusters_on_channels"] = clusters_on_channels
 
+    channels_for_clusters = {}
     cluster_spike_times = {}
     for i in range(len(cluster_info)):
         clust_id,clust_ch = cluster_info.iloc[i][['cluster_id', 'ch']]
@@ -126,42 +131,72 @@ def read_session(time_window, imec_path=None, bandtype='', amp_thres=0, waveform
         clust_spike_times = spike_times[spike_clusters == clust_id]
         cluster_spike_times[clust_id] = clust_spike_times
 
-    # for cluster in cluster_info['cluster_id']:
-    #     cluster_spike_times[cluster] = spike_times[spike_clusters == cluster]
+        channels_for_clusterOI = np.where(template_amps[clust_to_template[clust_id],:] > amp_thres)[0]
+        channels_for_clusters[clust_id] = channels_for_clusterOI
+
     output['cluster_spike_times'] = cluster_spike_times
+    output['channels_for_clusters'] = channels_for_clusters
 
-    templates.close()
-    spike_templates.close()
-    spike_times.close()
-    spike_clusters.close()
+    print("Session loading complete.")
+    return output
 
-    if waveform_path is not None:
-        # THE WAVEFORM .mat IS CUSTOM MADE, WILL NEED TO GENERATE FROM CHAND LAB FOR EACH NEW DATASET
-        waveform_samples = sio.loadmat(waveform_path)
-    output['waveform_samples'] = waveform_samples
+def load_waveforms(waveform_path, session_dataset, filter_truncs=None):
+    output = {}
+
+    print("Loading waveforms...")
+    waveform_samples = sio.loadmat(waveform_path)
+    fs = session_dataset['sampling_rate']
+    selected_clusters = np.squeeze(waveform_samples['cluster_id'])
+
+    print(f"{selected_clusters.size} waveforms selected.")
+    output['cluster_id'] = selected_clusters
+    output['samples'] = waveform_samples['waveform_sample']
+    output['waveform_means'] = waveform_samples['waveform_sample'].mean(axis=2)
+    output['spike_times'] = [session_dataset['cluster_spike_times'][wcl] for wcl in selected_clusters]
+    output['channels'] = [session_dataset['channels_for_clusters'][wcl] for wcl in selected_clusters]
+
+    if filter_truncs == None:
+        filter_truncs = {}
+
+    cluster_time_filters = []
+    cluster_freq_filters = []
+    cluster_filter_psds = []
+
+    for i,wcl in enumerate(selected_clusters):
+        if filter_truncs.get(wcl) == None:
+            ftrunc = 62
+        else:
+            ftrunc = filter_truncs.get(wcl)
+        time_filter,freq_filter,filter_psd,filter_freq_axis = gen_filter(output['waveform_means'][i], fs=fs, truncate_idx=ftrunc, center=True)
+        cluster_time_filters.append(time_filter)
+        cluster_freq_filters.append(freq_filter)
+        cluster_filter_psds.append(filter_psd)
+
 
     return output
+
 
 class ChannelSignal:
     """
     Object containing the time series and units
     """
-    def __init__(self, channel, session_dataset, high_pass_filt=None):
+    def __init__(self, channel, session_dataset, waveform_dataset, high_pass_filt=None, multitaper_args=None):
         """
         Initialize
         """
         fs = session_dataset["sampling_rate"]
         channel_time_series = session_dataset["channel_ts_array"]
         cluster_info = session_dataset["cluster_info"]
-        waveforms = session_dataset["waveform_samples"]
         time_range = session_dataset["time_range"]
         
         self.channel = channel
         self.fs = fs
-        self.dominant_units = cluster_info['cluster_id'][cluster_info['ch'] == channel]
+        self.dominant_units = np.intersect1d(cluster_info['cluster_id'][cluster_info['ch'] == channel], waveform_dataset['cluster_id'])
+        self.detected_units = np.intersect1d(session_dataset["clusters_on_channels"][channel], waveform_dataset['cluster_id'])
 
         self.time_axis = np.linspace(int(time_range[0]/fs), int(time_range[1]/fs), time_range[1] - time_range[0])
 
+        # center
         time_series = channel_time_series[channel] - np.mean(channel_time_series[channel])
 
         # filter, can change if needed
@@ -178,6 +213,20 @@ class ChannelSignal:
             sos = sig.butter(3, high_pass_filt, 'hp', fs=fs, output='sos')
             time_series = sig.sosfilt(sos, time_series)
         self.time_series = time_series
+
+        # calculate multitaper psd
+        mtap_psd, mtap_frequencies = multitaper_psd(time_series, fs, start_time=session_dataset['time_window'][0])
+        self.mtap_psd = mtap_psd
+        self.mtap_frequencies = mtap_frequencies
+
+    def plot_time_series(self, display_clusters=None, ax=None):
+        ax.plot(self.time_axis, self.time_series, color='k')
+
+    def plot_spectrum(self, display_clusters=None, log=False, ax=None):
+        if log:
+            ax.loglog(self.mtap_frequencies, self.mtap_psd, linewidth=0.7, color='k')
+        else:
+            ax.plot(self.mtap_frequencies, self.mtap_psd, linewidth=0.7, color='k')
 
 
         
