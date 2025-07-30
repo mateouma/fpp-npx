@@ -4,7 +4,7 @@ import scipy.signal as sig
 
 from spectral_connectivity import Multitaper, Connectivity
 
-def multitaper_psd(time_series, fs, thbp=None, start_time=0.0, verbose=True):
+def multitaper_psd(time_series, fs, thbp=None, start_time=0.0, verbose=False):
     if thbp is not None:
         multitaper = Multitaper(
                 time_series,

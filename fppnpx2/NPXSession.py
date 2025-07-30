@@ -1,6 +1,5 @@
 import os
 import numpy as np
-import matplotlib.pyplot
 import pandas as pd
 import mat73 as mt
 import scipy.io as sio
@@ -19,9 +18,7 @@ def read_session(time_window, imec_path=None, bandtype='', amp_thres=0, waveform
     """
     Initialize using the imec folder path
     """
-    # /home/mateoumaguing/Documents/MiscData/TibsCFD/TIBERIUS_CHKDLAY_DLPFC_NPIX45_063023_g0
-    # /home/mateoumaguing/Documents/MiscData/TibsCFD/TIBERIUS_CHKDLAY_DLPFC_NPIX45_063023_g0/TIBERIUS_CHKDLAY_DLPFC_NPIX45_063023_g0_t0.exported.imec0.ap.bin
-
+    
     output = {}
 
     bandtype = bandtype.lower()
@@ -129,7 +126,7 @@ def read_session(time_window, imec_path=None, bandtype='', amp_thres=0, waveform
         clust_id,clust_ch = cluster_info.iloc[i][['cluster_id', 'ch']]
 
         clust_spike_times = spike_times[spike_clusters == clust_id]
-        cluster_spike_times[clust_id] = clust_spike_times
+        cluster_spike_times[clust_id] = clust_spike_times[np.logical_and(clust_spike_times >= t1, clust_spike_times <= t2)]
 
         channels_for_clusterOI = np.where(template_amps[clust_to_template[clust_id],:] > amp_thres)[0]
         channels_for_clusters[clust_id] = channels_for_clusterOI
@@ -140,41 +137,61 @@ def read_session(time_window, imec_path=None, bandtype='', amp_thres=0, waveform
     print("Session loading complete.")
     return output
 
-def load_waveforms(waveform_path, session_dataset, filter_truncs=None):
-    output = {}
+def load_waveforms(waveform_path=None, session_dataset=None, filter_truncs=None, default_trunc_idx=62):
+    """
+    Function for loading in the waveforms that will be used as filters. These come in from a custom MATLAB script from the Chand Lab using
+    code from Daniel O'Shea. This can (and should) be updated later so that it can load the waveforms without the custom scripts.
 
+    output - dict
+        First key: cluster
+        Second key: waveform mean, samples, channels, spike times, and filters
+    """
     print("Loading waveforms...")
-    waveform_samples = sio.loadmat(waveform_path)
+    
+    if waveform_path == None:
+        root = Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+
+        waveform_path = filedialog.askopenfilename(title="Please select waveform .mat file")
+        
+        root.destroy()
+
+    waveformmat = mt.loadmat(waveform_path)['goodUnits']
     fs = session_dataset['sampling_rate']
-    selected_clusters = np.squeeze(waveform_samples['cluster_id'])
+    selected_clusters = waveformmat['cluId']
+    print(f"{len(selected_clusters)} clusters with good waveforms.")
 
-    print(f"{selected_clusters.size} waveforms selected.")
-    output['cluster_id'] = selected_clusters
-    output['samples'] = waveform_samples['waveform_sample']
-    output['waveform_means'] = waveform_samples['waveform_sample'].mean(axis=2)
-    output['spike_times'] = [session_dataset['cluster_spike_times'][wcl] for wcl in selected_clusters]
-    output['channels'] = [session_dataset['channels_for_clusters'][wcl] for wcl in selected_clusters]
+    output = {int(selected_cluster):{} for selected_cluster in selected_clusters}
 
-    if filter_truncs == None:
-        filter_truncs = {}
+    filter_trunc_dict = {int(selected_cluster):default_trunc_idx for selected_cluster in selected_clusters}
+    try:
+        for k in filter_truncs.keys():
+            filter_trunc_dict[k] = filter_truncs[k]
+    except:
+        pass
+    
+    for i,selected_cluster in enumerate(selected_clusters):
+        sel_clust_int = int(selected_cluster)
+        waveform_samples = waveformmat['waveforms'][i]
+        mean_waveform = np.mean(waveform_samples, axis=1)
+        
+        # calculate filters
+        time_filter,freq_filter,filter_psd,filter_freq_axis = gen_filter(mean_waveform, n=fs, fs=fs, truncate_idx=filter_trunc_dict[sel_clust_int], center=True)
+        
+        output[sel_clust_int]['time_filter'] = time_filter
+        output[sel_clust_int]['freq_filter'] = freq_filter
+        output[sel_clust_int]['filter_psd'] = filter_psd
+        output[sel_clust_int]['filter_freq_axis'] = filter_freq_axis
+        output[sel_clust_int]['mean_waveform'] = mean_waveform
+        output[sel_clust_int]['samples'] = waveform_samples
+        output[sel_clust_int]['main_channel'] = waveformmat['channelId'][i]
+        output[sel_clust_int]['channels'] = session_dataset['channels_for_clusters'][sel_clust_int]
+        output[sel_clust_int]['spike_times'] = session_dataset['cluster_spike_times'][sel_clust_int]
 
-    cluster_time_filters = []
-    cluster_freq_filters = []
-    cluster_filter_psds = []
-
-    for i,wcl in enumerate(selected_clusters):
-        if filter_truncs.get(wcl) == None:
-            ftrunc = 62
-        else:
-            ftrunc = filter_truncs.get(wcl)
-        time_filter,freq_filter,filter_psd,filter_freq_axis = gen_filter(output['waveform_means'][i], fs=fs, truncate_idx=ftrunc, center=True)
-        cluster_time_filters.append(time_filter)
-        cluster_freq_filters.append(freq_filter)
-        cluster_filter_psds.append(filter_psd)
-
-
-    return output
-
+    waveform_means = np.mean(waveformmat['waveforms'], axis=2)
+    print("Loaded waveforms.")
+    return output, waveform_means
 
 class ChannelSignal:
     """
@@ -191,8 +208,8 @@ class ChannelSignal:
         
         self.channel = channel
         self.fs = fs
-        self.dominant_units = np.intersect1d(cluster_info['cluster_id'][cluster_info['ch'] == channel], waveform_dataset['cluster_id'])
-        self.detected_units = np.intersect1d(session_dataset["clusters_on_channels"][channel], waveform_dataset['cluster_id'])
+        self.dominant_units = np.intersect1d(cluster_info['cluster_id'][cluster_info['ch'] == channel], list(waveform_dataset.keys()))
+        self.detected_units = np.intersect1d(session_dataset["clusters_on_channels"][channel], list(waveform_dataset.keys()))
 
         self.time_axis = np.linspace(int(time_range[0]/fs), int(time_range[1]/fs), time_range[1] - time_range[0])
 
@@ -215,12 +232,14 @@ class ChannelSignal:
         self.time_series = time_series
 
         # calculate multitaper psd
-        mtap_psd, mtap_frequencies = multitaper_psd(time_series, fs, start_time=session_dataset['time_window'][0])
+        if multitaper_args == None:
+            multitaper_args = {'thbp': None, 'verbose': True}
+        mtap_psd, mtap_frequencies = multitaper_psd(time_series, fs, start_time=session_dataset['time_window'][0], **multitaper_args)
         self.mtap_psd = mtap_psd
         self.mtap_frequencies = mtap_frequencies
 
     def plot_time_series(self, display_clusters=None, ax=None):
-        ax.plot(self.time_axis, self.time_series, color='k')
+        ax.plot(self.time_axis, self.time_series, color='k', linewidth=0.7)
 
     def plot_spectrum(self, display_clusters=None, log=False, ax=None):
         if log:
