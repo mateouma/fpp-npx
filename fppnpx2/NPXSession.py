@@ -14,17 +14,34 @@ from .DemoReadSGLXData.readSGLX import readMeta, SampRate
 from .spectral import *
 from .filters import *
 
-def read_session(time_window, imec_path=None, bandtype='', amp_thres=0, waveform_path=None):
+def read_bin(bin_path, time_window, fs, N_channels):
+    bytes_per_sample = 2
+    t1, t2 = int(np.round(time_window[0]*fs)), int(np.round(time_window[1]*fs))
+
+    # read in Neuropixels signal
+    with open(str(bin_path), 'rb') as f_src:
+        # each sample for each channel is encoded on 16 bits = 2 bytes: samples*Nchannels*2.
+        byte1 = int(t1*N_channels*bytes_per_sample)
+        byte2 = int(t2*N_channels*bytes_per_sample)
+        bytesRange = byte2-byte1
+
+        f_src.seek(byte1)
+
+        bData = f_src.read(bytesRange)
+    
+    signal_array = np.frombuffer(bData, dtype=np.int16)
+    signal_array = signal_array.reshape((int(t2-t1), N_channels)).T
+
+    time_axis = np.linspace(int(t1/fs), int(t2/fs), t2-t1)
+
+    return signal_array, time_axis
+
+def read_session(time_window, imec_path=None, amp_thres=0):
     """
     Initialize using the imec folder path
     """
     
     output = {}
-
-    bandtype = bandtype.lower()
-    if (bandtype != 'lfp') and (bandtype != 'ap'):
-        raise ValueError("Please specify band type (AP or LFP)")
-    output['bandtype'] = bandtype
 
     # =====================================
     # READ IN FILE FOLDER PATH AND METADATA
@@ -40,63 +57,49 @@ def read_session(time_window, imec_path=None, bandtype='', amp_thres=0, waveform
         
         root.destroy()
     
-    print(f"Creating session from {imec_path}")
+    print(f"Loading session from {imec_path}")
 
-    # read in metadata based on AP or LFP binary file
-    if bandtype == 'ap':
-        search_string = 'imec0.ap.bin'
-    elif bandtype == 'lfp':
-        search_string = 'imec0.lf.bin'
     imec_dir = Path(imec_path)
     
     for path_cand in imec_dir.glob('*'):
         if path_cand.is_file():
-            if search_string in str(path_cand):
-                bin_path = path_cand
+            if 'imec0.ap.bin' in str(path_cand):
+                ap_bin_path = path_cand
+            elif 'imec0.lf.bin' in str(path_cand):
+                lfp_bin_path = path_cand
         elif path_cand.is_dir():
             if 'kilosort4' in str(path_cand):
                 kilosort_path = str(path_cand)
-    
+
+    output['ap_bin_path'] = ap_bin_path
+    output['lfp_bin_path'] = lfp_bin_path
+
     print("Reading metadata...")
-    meta = readMeta(bin_path)
-    output['meta'] = meta
+    ap_meta = readMeta(ap_bin_path)
+    lfp_meta = readMeta(lfp_bin_path)
+    output['ap_meta'] = ap_meta
+    output['lfp_meta'] = lfp_meta
 
-    fs = int(SampRate(meta))
-    output['sampling_rate'] = fs
+    fsAP = int(SampRate(ap_meta))
+    fsLFP = int(SampRate(lfp_meta))
+    output['ap_sampling_rate'] = fsAP
+    output['lfp_sampling_rate'] = fsLFP
 
-    N_channels = int(meta['nSavedChans'])
+    N_channels = int(ap_meta['nSavedChans'])
     output['N_channels'] = N_channels
 
     # ========================================
     # READ IN ACTUAL CHANNEL TIME-SERIES ARRAY
     # ========================================
-    print("Reading recorded signal...")
+    print("Reading channel information...")
     channel_map = np.load(kilosort_path + "/channel_map.npy")
     output['channel_map'] = channel_map # TAKE NOTE OF THIS
     N_channels_inuse = channel_map.size
     output['N_channels_inuse'] = N_channels_inuse
     print(f"{N_channels_inuse} usable channels. Use `channel_map` to get usable channels.")
 
-    bytes_per_sample = 2
-    t1, t2 = int(np.round(time_window[0]*fs)), int(np.round(time_window[1]*fs))
+    t1, t2 = int(np.round(time_window[0]*fsAP)), int(np.round(time_window[1]*fsAP)) # for indexing spike times
     output['time_window'] = time_window
-    output['time_range'] = (t1,t2)
-
-    # read in Neuropixels signal
-    with open(str(bin_path), 'rb') as f_src:
-        # each sample for each channel is encoded on 16 bits = 2 bytes: samples*Nchannels*2.
-        byte1 = int(t1*N_channels*bytes_per_sample)
-        byte2 = int(t2*N_channels*bytes_per_sample)
-        bytesRange = byte2-byte1
-
-        f_src.seek(byte1)
-
-        bData = f_src.read(bytesRange)
-    
-    channel_ts_array = np.frombuffer(bData, dtype=np.int16)
-    channel_ts_array = channel_ts_array.reshape((int(t2-t1), N_channels)).T
-    # channel_ts_array = channel_ts_array[channel_map,:] # index by usable channels into into N_channels_inuse X (fs x time) shape array
-    output['channel_ts_array'] = channel_ts_array
 
     # ==================================
     # READ IN CLUSTER INFO FROM KILOSORT
@@ -158,9 +161,10 @@ def load_waveforms(waveform_path=None, session_dataset=None, filter_truncs=None,
         root.destroy()
 
     waveformmat = mt.loadmat(waveform_path)['goodUnits']
-    fs = session_dataset['sampling_rate']
+    fs = session_dataset['ap_sampling_rate']
+    segment_length = session_dataset["time_window"][1] - session_dataset["time_window"][0]
     selected_clusters = waveformmat['cluId']
-    print(f"{len(selected_clusters)} clusters with good waveforms.")
+    print(f"{len(selected_clusters)} clusters with good waveforms detected.")
 
     output = {int(selected_cluster):{} for selected_cluster in selected_clusters}
 
@@ -175,7 +179,7 @@ def load_waveforms(waveform_path=None, session_dataset=None, filter_truncs=None,
         sel_clust_int = int(selected_cluster)
         waveform_samples = waveformmat['waveforms'][i]
         mean_waveform = np.mean(waveform_samples, axis=1)
-        
+
         # calculate filters
         time_filter,freq_filter,filter_psd,filter_freq_axis = gen_filter(mean_waveform, n=fs, fs=fs, truncate_idx=filter_trunc_dict[sel_clust_int], center=True)
         
@@ -188,43 +192,48 @@ def load_waveforms(waveform_path=None, session_dataset=None, filter_truncs=None,
         output[sel_clust_int]['main_channel'] = waveformmat['channelId'][i]
         output[sel_clust_int]['channels'] = session_dataset['channels_for_clusters'][sel_clust_int]
         output[sel_clust_int]['spike_times'] = session_dataset['cluster_spike_times'][sel_clust_int]
+        output[sel_clust_int]['firing_rate'] = len(session_dataset['cluster_spike_times'][sel_clust_int]) / segment_length
 
     waveform_means = np.mean(waveformmat['waveforms'], axis=2)
-    print("Loaded waveforms.")
     return output, waveform_means
 
 class ChannelSignal:
     """
-    Object containing the time series and units
+    Object containing the time series, multitaper psd, and units
     """
-    def __init__(self, channel, session_dataset, waveform_dataset, high_pass_filt=None, multitaper_args=None):
+    def __init__(self, channel, session_dataset, bandtype='AP', waveform_dataset=None, notch_filt=3, high_pass_filt=None, multitaper_args=None):
         """
         Initialize
         """
-        fs = session_dataset["sampling_rate"]
-        channel_time_series = session_dataset["channel_ts_array"]
-        cluster_info = session_dataset["cluster_info"]
-        time_range = session_dataset["time_range"]
+        bandtype = bandtype.lower()
+        if (bandtype != 'lfp') and (bandtype != 'ap'):
+            raise ValueError("Please specify band type (AP or LFP)")
         
+        fs = session_dataset[f"{bandtype}_sampling_rate"]
+        # channel_time_series = session_dataset["channel_ts_array"]        
+        cluster_info = session_dataset["cluster_info"]        
         self.channel = channel
-        self.fs = fs
-        self.dominant_units = np.intersect1d(cluster_info['cluster_id'][cluster_info['ch'] == channel], list(waveform_dataset.keys()))
-        self.detected_units = np.intersect1d(session_dataset["clusters_on_channels"][channel], list(waveform_dataset.keys()))
+        self.sampling_rate = fs
 
-        self.time_axis = np.linspace(int(time_range[0]/fs), int(time_range[1]/fs), time_range[1] - time_range[0])
+        if waveform_dataset is not None:
+            self.dominant_units = np.intersect1d(cluster_info['cluster_id'][cluster_info['ch'] == channel], list(waveform_dataset.keys()))
+            self.detected_units = np.intersect1d(session_dataset["clusters_on_channels"][channel], list(waveform_dataset.keys()))
+        else:
+            self.dominant_units = cluster_info['cluster_id'][cluster_info['ch'] == channel]
+            self.detected_units = session_dataset["clusters_on_channels"][channel]
 
-        # center
+        # self.time_axis = np.linspace(int(time_range[0]/fs), int(time_range[1]/fs), time_range[1] - time_range[0])
+
+        # read in time-series signal and center
+        channel_time_series,time_axis = read_bin(session_dataset[f"{bandtype}_bin_path"], session_dataset["time_window"], fs, session_dataset["N_channels"])
         time_series = channel_time_series[channel] - np.mean(channel_time_series[channel])
+        self.time_axis = time_axis
 
-        # filter, can change if needed
-        sos = sig.butter(1, [59,61], 'bandstop', fs=fs, output='sos')
-        time_series = sig.sosfilt(sos, time_series)
-
-        sos = sig.butter(1, [119,121], 'bandstop', fs=fs, output='sos')
-        time_series = sig.sosfilt(sos, time_series)
-
-        sos = sig.butter(1, [179,181], 'bandstop', fs=fs, output='sos')
-        time_series = sig.sosfilt(sos, time_series)
+        # filters, can change if needed
+        if type(notch_filt) is int:
+            for nf in range(1,notch_filt+1):
+                sos = sig.butter(1, [60*nf - 1, 60*nf + 1], 'bandstop', fs=fs, output='sos')
+                time_series = sig.sosfilt(sos, time_series)
 
         if high_pass_filt is not None:
             sos = sig.butter(3, high_pass_filt, 'hp', fs=fs, output='sos')
@@ -233,7 +242,7 @@ class ChannelSignal:
 
         # calculate multitaper psd
         if multitaper_args == None:
-            multitaper_args = {'thbp': None, 'verbose': True}
+            multitaper_args = {'thbp': None}
         mtap_psd, mtap_frequencies = multitaper_psd(time_series, fs, start_time=session_dataset['time_window'][0], **multitaper_args)
         self.mtap_psd = mtap_psd
         self.mtap_frequencies = mtap_frequencies
