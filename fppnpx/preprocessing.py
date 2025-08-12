@@ -11,8 +11,10 @@ from tkinter import Tk, filedialog
 
 # script for reading in SpikeGLX data from Jennifer Colonell (https://github.com/jenniferColonell/SpikeGLX_Datafile_Tools)
 from .DemoReadSGLXData.readSGLX import readMeta, SampRate
+
 from .spectral import *
 from .filters import *
+from .plottools import MATMAP
 
 def read_bin(bin_path, time_window, fs, N_channels):
     bytes_per_sample = 2
@@ -96,7 +98,7 @@ def read_session(time_window, imec_path=None, amp_thres=0):
     output['channel_map'] = channel_map # TAKE NOTE OF THIS
     N_channels_inuse = channel_map.size
     output['N_channels_inuse'] = N_channels_inuse
-    print(f"{N_channels_inuse} usable channels. Use `channel_map` to get usable channels.")
+    print(f"{N_channels_inuse} usable channels detected. Use `channel_map` to view usable channels.")
 
     t1, t2 = int(np.round(time_window[0]*fsAP)), int(np.round(time_window[1]*fsAP)) # for indexing spike times
     output['time_window'] = time_window
@@ -145,9 +147,9 @@ def load_waveforms(waveform_path=None, session_dataset=None, filter_truncs=None,
     Function for loading in the waveforms that will be used as filters. These come in from a custom MATLAB script from the Chand Lab using
     code from Daniel O'Shea. This can (and should) be updated later so that it can load the waveforms without the custom scripts.
 
-    output - dict
-        First key: cluster
-        Second key: waveform mean, samples, channels, spike times, and filters
+    Returns:
+        output (dict): dictionary containing the waveform mean, samples, channels, spike times, and filters for each cluster unit
+        waveform_means (np.ndarray): N_units x N_timepoints array containing the waveform means (meant for WaveMAP)
     """
     print("Loading waveforms...")
     
@@ -181,11 +183,11 @@ def load_waveforms(waveform_path=None, session_dataset=None, filter_truncs=None,
         mean_waveform = np.mean(waveform_samples, axis=1)
 
         # calculate filters
-        time_filter,freq_filter,filter_psd,filter_freq_axis = gen_filter(mean_waveform, n=fs, fs=fs, truncate_idx=filter_trunc_dict[sel_clust_int], center=True)
+        time_filter,freq_filter,filter_spectrum,filter_freq_axis = gen_filter(mean_waveform, n=fs, fs=fs, truncate_idx=filter_trunc_dict[sel_clust_int], center=True)
         
         output[sel_clust_int]['time_filter'] = time_filter
         output[sel_clust_int]['freq_filter'] = freq_filter
-        output[sel_clust_int]['filter_psd'] = filter_psd
+        output[sel_clust_int]['filter_spectrum'] = filter_spectrum
         output[sel_clust_int]['filter_freq_axis'] = filter_freq_axis
         output[sel_clust_int]['mean_waveform'] = mean_waveform
         output[sel_clust_int]['samples'] = waveform_samples
@@ -196,65 +198,3 @@ def load_waveforms(waveform_path=None, session_dataset=None, filter_truncs=None,
 
     waveform_means = np.mean(waveformmat['waveforms'], axis=2)
     return output, waveform_means
-
-class ChannelSignal:
-    """
-    Object containing the time series, multitaper psd, and units
-    """
-    def __init__(self, channel, session_dataset, bandtype='AP', waveform_dataset=None, notch_filt=3, high_pass_filt=None, multitaper_args=None):
-        """
-        Initialize
-        """
-        bandtype = bandtype.lower()
-        if (bandtype != 'lfp') and (bandtype != 'ap'):
-            raise ValueError("Please specify band type (AP or LFP)")
-        
-        fs = session_dataset[f"{bandtype}_sampling_rate"]
-        # channel_time_series = session_dataset["channel_ts_array"]        
-        cluster_info = session_dataset["cluster_info"]        
-        self.channel = channel
-        self.sampling_rate = fs
-
-        if waveform_dataset is not None:
-            self.dominant_units = np.intersect1d(cluster_info['cluster_id'][cluster_info['ch'] == channel], list(waveform_dataset.keys()))
-            self.detected_units = np.intersect1d(session_dataset["clusters_on_channels"][channel], list(waveform_dataset.keys()))
-        else:
-            self.dominant_units = cluster_info['cluster_id'][cluster_info['ch'] == channel]
-            self.detected_units = session_dataset["clusters_on_channels"][channel]
-
-        # self.time_axis = np.linspace(int(time_range[0]/fs), int(time_range[1]/fs), time_range[1] - time_range[0])
-
-        # read in time-series signal and center
-        channel_time_series,time_axis = read_bin(session_dataset[f"{bandtype}_bin_path"], session_dataset["time_window"], fs, session_dataset["N_channels"])
-        time_series = channel_time_series[channel] - np.mean(channel_time_series[channel])
-        self.time_axis = time_axis
-
-        # filters, can change if needed
-        if type(notch_filt) is int:
-            for nf in range(1,notch_filt+1):
-                sos = sig.butter(1, [60*nf - 1, 60*nf + 1], 'bandstop', fs=fs, output='sos')
-                time_series = sig.sosfilt(sos, time_series)
-
-        if high_pass_filt is not None:
-            sos = sig.butter(3, high_pass_filt, 'hp', fs=fs, output='sos')
-            time_series = sig.sosfilt(sos, time_series)
-        self.time_series = time_series
-
-        # calculate multitaper psd
-        if multitaper_args == None:
-            multitaper_args = {'thbp': None}
-        mtap_psd, mtap_frequencies = multitaper_psd(time_series, fs, start_time=session_dataset['time_window'][0], **multitaper_args)
-        self.mtap_psd = mtap_psd
-        self.mtap_frequencies = mtap_frequencies
-
-    def plot_time_series(self, display_clusters=None, ax=None):
-        ax.plot(self.time_axis, self.time_series, color='k', linewidth=0.7)
-
-    def plot_spectrum(self, display_clusters=None, log=False, ax=None):
-        if log:
-            ax.loglog(self.mtap_frequencies, self.mtap_psd, linewidth=0.7, color='k')
-        else:
-            ax.plot(self.mtap_frequencies, self.mtap_psd, linewidth=0.7, color='k')
-
-
-        
