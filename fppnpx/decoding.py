@@ -12,7 +12,7 @@ class FPPGLM:
         self.MODEL_FIT = False
 
     def fit(self, time_series, time_axis, filter_spectrum_list, filter_spectrum_frequencies,
-            observed_rates, frequency_range, multitaper_args, verbose=False):
+            observed_rates, frequency_range, verbose=False, **multitaper_args):
         """
         
         """

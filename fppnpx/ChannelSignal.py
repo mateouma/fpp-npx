@@ -23,8 +23,7 @@ class ChannelSignal:
     """
     def __init__(self, channel, session_dataset, bandtype='AP', waveform_dataset=None,
                  notch_filt=3, bandpass_filt=None, highpass_filt=None,
-                 compute_spectrum=True, time_halfbandwidth_product=None, compute_spectrogram=False, spectrogram_args=None,
-                 verbose=True):
+                 compute_spectrum=True, time_halfbandwidth_product=None, compute_spectrogram=False, verbose=True, **spectrogram_args):
         bandtype = bandtype.lower()
         if (bandtype != 'lfp') and (bandtype != 'ap'):
             raise ValueError("Please specify band type (AP or LFP)")
@@ -77,7 +76,7 @@ class ChannelSignal:
             if verbose: print("Computing multitapered spectrogram...")
             if spectrogram_args == None:
                 spectrogram_args = {'window_duration': 0.5, 'window_step':0.5}
-            self.mtap_spectrogram = multitaper_spectrogram(time_series, fs, time_halfbandwidth_product=time_halfbandwidth_product, start_time=session_dataset["time_window"][0], **spectrogram_args)
+            self.mtap_spectrogram = multitaper_spectrogram(time_series, fs, time_halfbandwidth_product=time_halfbandwidth_product, start_time=session_dataset["time_window"][0], verbose=verbose, **spectrogram_args)
 
     def plot_time_series(self, display_clusters=None, ax=None):
         ax.plot(self.time_axis, self.time_series, color='k', linewidth=0.7)
@@ -86,7 +85,7 @@ class ChannelSignal:
         if log:
             ax.loglog(self.mtap_frequencies, self.mtap_spectrum, linewidth=0.7, color='k')
         else:
-            ax.plot(self.mtap_frequencies, self.mtap_spectrum, linewidth=0.7, color='k')
+            ax.semilogy(self.mtap_frequencies, self.mtap_spectrum, linewidth=0.7, color='k')
 
         if self.bandtype == 'ap':
             ax.set_xlim(300,10000)

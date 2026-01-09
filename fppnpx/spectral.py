@@ -27,7 +27,7 @@ def multitaper_spectrum(time_series, fs, time_halfbandwidth_product=None, start_
 
     return multitaper_spectrum, multitaper_frequencies
 
-def multitaper_spectrogram(time_series, fs, time_halfbandwidth_product, window_duration, window_step, start_time=0.0):
+def multitaper_spectrogram(time_series, fs, time_halfbandwidth_product, window_duration, window_step, start_time=0.0, verbose=False):
     multitaper = Multitaper(
         time_series,
         sampling_frequency=fs,
@@ -37,7 +37,9 @@ def multitaper_spectrogram(time_series, fs, time_halfbandwidth_product, window_d
         start_time=start_time,
     )
     connectivity = Connectivity.from_multitaper(multitaper)
-    
+    if verbose:
+        print(f"Multitaper frequency resolution: {multitaper.frequency_resolution}")
+        print(f"Multitaper number of tapers: {multitaper.n_tapers}")
     return connectivity
 
 def spectrum_trunc(freqs, spectrum, freq_range, spectrogram=False):

@@ -28,3 +28,5 @@ def gen_filter(waveform, n, fs, truncate_idx=62, truncate_val=None, center=False
     freq_axis = np.linspace(-int(fs/2), int(fs/2), n)
 
     return filter_t, filter_f, filter_psd, freq_axis
+
+
