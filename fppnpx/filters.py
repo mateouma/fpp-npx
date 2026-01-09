@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib import colormaps
 
-def gen_filter(waveform, n, fs, truncate_idx=62, truncate_val=None, center=False):
+def gen_filter(waveform, n, fs, truncate_idx=62, truncate_val=None, center=False, scale_to=False):
     waveform = waveform[:truncate_idx]
 
     filter_t = np.zeros((n))

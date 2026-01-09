@@ -131,7 +131,7 @@ def read_session(time_window, imec_path=None, amp_thres=0):
         clust_id,clust_ch = cluster_info.iloc[i][['cluster_id', 'ch']]
 
         clust_spike_times = spike_times[spike_clusters == clust_id]
-        cluster_spike_times[clust_id] = clust_spike_times[np.logical_and(clust_spike_times >= t1, clust_spike_times <= t2)]
+        cluster_spike_times[clust_id] = clust_spike_times[np.logical_and(clust_spike_times >= t1, clust_spike_times <= t2)] - t1
 
         channels_for_clusterOI = np.where(template_amps[clust_to_template[clust_id],:] > amp_thres)[0]
         channels_for_clusters[clust_id] = channels_for_clusterOI

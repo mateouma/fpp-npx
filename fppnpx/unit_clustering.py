@@ -80,7 +80,7 @@ class WaveMAP:
         random.seed(self.random_state)
 
         # run UMAP using library
-        reducer = umap.UMAP(n_neighbors=self.n_neighbors, min_dist=self.min_dist)#, random_state=self.random_state)
+        reducer = umap.UMAP(n_neighbors=self.n_neighbors, min_dist=self.min_dist, random_state=self.random_state)
         mapper = reducer.fit(waveforms)
         embedding = reducer.transform(waveforms)
         umap_df = pd.DataFrame(embedding, columns=('x', 'y'))
@@ -155,52 +155,47 @@ class WaveMAP:
         else:
             group = [group]
 
-        for label_ix in group:
-            #plot_group(i,clustering_solution,umap_df,CUSTOM_PAL_SORT_3)
-            f,arr = plt.subplots()
-            f.set_figheight(1.8*1)
-            f.set_figwidth(3.0*1)
+        n_clust_sq = int(np.ceil(np.sqrt(self.n_clusters)))
+
+        fig,ax = plt.subplots(n_clust_sq, n_clust_sq, figsize=(7,4))
+        ax = ax.flatten()
+
+        for i in range(len(ax)):
+            ax[i].spines['right'].set_visible(False)
+            ax[i].spines['top'].set_visible(False)
+            ax[i].spines['left'].set_visible(False)
+            ax[i].spines['bottom'].set_visible(False)
+
+            ax[i].set(xticks=[],yticks=[])
+
+        for ix,label_ix in enumerate(group):
 
             if not mean_only:
                 for i,group_waveform in enumerate(self.cluster_waveforms[label_ix]):
-                    arr.plot(group_waveform, c=self.CLUSTER_PALETTE[label_ix], alpha=0.3, linewidth=1.5)
-                arr.plot(np.mean(self.cluster_waveforms[label_ix], axis=0), c='k', linestyle='-')
+                    ax[ix].plot(group_waveform, c=self.CLUSTER_PALETTE[label_ix], alpha=0.3, linewidth=1.2)
+                ax[ix].plot(np.mean(self.cluster_waveforms[label_ix], axis=0), c='k', linestyle='-', linewidth=0.7)
             else:
-                arr.plot(np.mean(self.cluster_waveforms[label_ix], axis=0), c=self.CLUSTER_PALETTE[label_ix])
-
-            arr.spines['right'].set_visible(False)
-            arr.spines['top'].set_visible(False)
+                ax[ix].plot(np.mean(self.cluster_waveforms[label_ix], axis=0), c=self.CLUSTER_PALETTE[label_ix])
 
             if detailed:
-                avg_peak = np.mean([np.argmax(x) for x in self.cluster_waveforms[label_ix][14:]])
-                arr.axvline(avg_peak,color='k',zorder=0)
-                
-                arr.set_ylim([-5,5])
-                arr.set_yticks([])
-                #arr.set_xticks([0,7,14,21,28,35,42,48])
-                arr.tick_params(axis='both', which='major', labelsize=12)
-                #arr.set_xticklabels([0,'',0.5,'',1.0,'',1.5,''])
-                arr.spines['left'].set_visible(False)
-                arr.grid(False)
-                #arr.set_xlim([0,48])
-            else:
-                arr.set(xticks=[],yticks=[])
+                pass
 
             if not mean_only:
                 x,y = 2.1,0.6
                 ellipse = mpl.patches.Ellipse((x,y), width=5.4, height=0.3, facecolor='w',
                                     edgecolor='k',linewidth=1.5)
-                label = arr.annotate(str(label_ix+1), xy=(x-0.25, y-0.08),fontsize=12, color = 'k', ha="center")
+                label = ax[ix].annotate(str(label_ix+1), xy=(x-0.25, y-0.08),fontsize=12, color = 'k', ha="center")
                 #arr.add_patch(ellipse)
 
                 if i != -1:
                     x, y = 40,-1
-                    n_waveforms = plt.text(x, y, 
+                    n_waveforms = ax[ix].text(x, y, 
                                         'n = '+str(len(self.cluster_waveforms[label_ix]))+
                                         ' ('+str(round(len(self.cluster_waveforms[label_ix])/len(self.umap_dataframe)*100,2))+'%)'
                                         , fontsize=10)
-            # f.savefig(f"figs/cluster_waveforms/wavemap_cluster{label_ix}_0521_res1.svg", dpi=300)
-            f.show()
+        #     # f.savefig(f"figs/cluster_waveforms/wavemap_cluster{label_ix}_0521_res1.svg", dpi=300)
+        plt.tight_layout()
+        return fig
 
     
 
