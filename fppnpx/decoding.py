@@ -30,7 +30,7 @@ class FPPGLM:
         S_interpolated = []
         for i,filter_spectrum in enumerate(filter_spectrum_list):
             filter_spectrum_trunc,filter_frequencies_trunc = spectrum_trunc(filter_spectrum_frequencies, filter_spectrum, frequency_range)
-            filter_spectrum_interp = spectrum_interp(self.mtap_frequencies_truncated, filter_frequencies_trunc,filter_spectrum_trunc)
+            filter_spectrum_interp = spectrum_interp(self.mtap_frequencies_truncated, filter_frequencies_trunc, filter_spectrum_trunc)
             
             S_truncated.append(filter_spectrum_trunc)
             S_interpolated.append(filter_spectrum_interp)
@@ -56,10 +56,11 @@ class FPPGLM:
 
         self.MODEL_FIT = True
 
-        print(f"Observed rates:          {self.observed_rates}")
-        print(f"Estimated rates:         {self.estimated_rates}")
-        print(f"Gamma dispersion (phi):  {glm_results.scale}")
-        print(f"Gamma shape (k):         {1 / glm_results.scale}")
+        if verbose:
+            print(f"Observed rates:          {self.observed_rates}")
+            print(f"Estimated rates:         {self.estimated_rates}")
+            print(f"Gamma dispersion (phi):  {glm_results.scale}")
+            print(f"Gamma shape (k):         {1 / glm_results.scale}")
 
     def predict(self, interp_filters=None):
         if interp_filters is None:

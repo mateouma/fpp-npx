@@ -54,6 +54,7 @@ WAVEMAP_PAL = ['#5e60ce', '#00c49a','#ffca3a','#D81159','#fe7f2d','#7bdff2','#04
 WAVEMAP_PAL2 = ['#D94E72', '#55C9D9', '#62D98F', '#6d8891', '#559FD9', '#D94EC5', '#8DDA62']
 
 MISC6_PAL = ['#1CA5FF', '#E38F19', '#AE1ED6', '#AED61C', '#D63A29', '#1CD676']
+WF_PAL = ["#D94E72", "#55C9D9", "#62D98F"]
 
 cmap = colormaps.get_cmap('Set1')
 
